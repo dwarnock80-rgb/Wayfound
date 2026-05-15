@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SubscriptionView: View {
     @Environment(WayfoundStore.self) private var store
+    @State private var subscriptionService = SubscriptionService()
 
     var body: some View {
         NavigationStack {
@@ -22,17 +23,33 @@ struct SubscriptionView: View {
                     }
                     .premiumPanel()
 
-                    Button {
-                        store.setPremium(!store.state.isPremium)
-                    } label: {
-                        Label(store.state.isPremium ? "Premium enabled" : "Preview premium unlock", systemImage: "star.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(WayfoundTheme.deepSage)
+                    VStack(spacing: 10) {
+                        Button {
+                            Task {
+                                await subscriptionService.purchasePremium(store: store)
+                            }
+                        } label: {
+                            Label(store.state.isPremium ? "Premium active" : purchaseButtonTitle, systemImage: "star.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .disabled(store.state.isPremium || subscriptionService.products.isEmpty || subscriptionService.isProcessing)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .tint(WayfoundTheme.deepSage)
 
-                    Text("StoreKit can replace this preview toggle when product identifiers are ready.")
+                        Button {
+                            Task {
+                                await subscriptionService.restore(store: store)
+                            }
+                        } label: {
+                            Label("Restore purchases", systemImage: "arrow.clockwise.circle.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .disabled(subscriptionService.isProcessing)
+                        .buttonStyle(.bordered)
+                    }
+
+                    Text(subscriptionService.statusMessage)
                         .font(.footnote)
                         .foregroundStyle(WayfoundTheme.secondaryInk)
                 }
@@ -40,7 +57,18 @@ struct SubscriptionView: View {
             }
             .background(WayfoundTheme.background)
             .navigationTitle("Premium")
+            .task {
+                await subscriptionService.loadProducts()
+                await subscriptionService.refreshEntitlements(store: store)
+            }
         }
+    }
+
+    private var purchaseButtonTitle: String {
+        if let product = subscriptionService.products.first {
+            return "Start premium \(product.displayPrice)"
+        }
+        return "Premium unavailable"
     }
 }
 

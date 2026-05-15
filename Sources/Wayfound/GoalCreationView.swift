@@ -6,6 +6,7 @@ struct GoalCreationView: View {
     @State private var category: WayfoundCategory = .health
     @State private var weight = 2
     @State private var weeklyTarget = 3
+    @State private var editingGoal: Goal?
 
     var body: some View {
         NavigationStack {
@@ -56,14 +57,20 @@ struct GoalCreationView: View {
                             .foregroundStyle(WayfoundTheme.secondaryInk)
                     }
 
-                    ForEach(store.state.goals) { goal in
+                    ForEach(store.visibleGoals) { goal in
                         GoalManagementRow(goal: goal)
+                            .onTapGesture {
+                                editingGoal = goal
+                            }
                     }
                 }
                 .padding(18)
             }
             .background(WayfoundTheme.background)
             .navigationTitle("Goals")
+            .sheet(item: $editingGoal) { goal in
+                GoalEditorView(goal: goal)
+            }
         }
     }
 }
@@ -79,6 +86,8 @@ private struct GoalManagementRow: View {
                     .font(.headline)
                     .foregroundStyle(goal.category.tint)
                 Spacer()
+                Image(systemName: "pencil.circle.fill")
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
             }
 
             Picker("Mode", selection: modeBinding) {
@@ -96,5 +105,72 @@ private struct GoalManagementRow: View {
             get: { goal.mode },
             set: { store.updateMode(for: goal, mode: $0) }
         )
+    }
+}
+
+private struct GoalEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(WayfoundStore.self) private var store
+    let goal: Goal
+    @State private var title: String
+    @State private var category: WayfoundCategory
+    @State private var weight: Int
+    @State private var weeklyTarget: Int
+    @State private var showDeleteConfirmation = false
+
+    init(goal: Goal) {
+        self.goal = goal
+        _title = State(initialValue: goal.title)
+        _category = State(initialValue: goal.category)
+        _weight = State(initialValue: goal.weight)
+        _weeklyTarget = State(initialValue: goal.weeklyTarget)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Goal title", text: $title)
+
+                Picker("Category", selection: $category) {
+                    ForEach(WayfoundCategory.allCases) { category in
+                        Label(category.rawValue, systemImage: category.symbol)
+                            .tag(category)
+                    }
+                }
+
+                Stepper("Weight: \(weight)", value: $weight, in: 1...5)
+                Stepper("Weekly target: \(weeklyTarget)", value: $weeklyTarget, in: 1...14)
+
+                Section {
+                    Button("Archive goal", role: .destructive) {
+                        store.archiveGoal(goal)
+                        dismiss()
+                    }
+
+                    Button("Delete goal and history", role: .destructive) {
+                        showDeleteConfirmation = true
+                    }
+                }
+            }
+            .navigationTitle("Edit Goal")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.updateGoal(goal, title: title, category: category, weight: weight, weeklyTarget: weeklyTarget)
+                        dismiss()
+                    }
+                }
+            }
+            .confirmationDialog("Delete this goal and its check-ins?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete permanently", role: .destructive) {
+                    store.deleteGoal(goal)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+        }
     }
 }

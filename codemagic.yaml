@@ -1,0 +1,45 @@
+workflows:
+  ios-ci:
+    name: Wayfound iOS CI
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "Wayfound.xcodeproj"
+        XCODE_SCHEME: "Wayfound"
+    scripts:
+      - name: Show Xcode version
+        script: xcodebuild -version
+      - name: Build simulator app
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+  ios-release:
+    name: Wayfound iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: "com.wayfound.app"
+      vars:
+        XCODE_PROJECT: "Wayfound.xcodeproj"
+        XCODE_SCHEME: "Wayfound"
+        BUNDLE_ID: "com.wayfound.app"
+    scripts:
+      - name: Show Xcode version
+        script: xcodebuild -version
+      - name: Apply Codemagic signing profiles
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log

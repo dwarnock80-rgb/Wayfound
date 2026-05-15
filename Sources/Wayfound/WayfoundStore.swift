@@ -4,32 +4,34 @@ import Observation
 @Observable
 @MainActor
 final class WayfoundStore {
-    private let storageKey = "wayfound.local.state.v1"
     private let calendar = Calendar.current
-    private let userDefaults: UserDefaults
+    private let persistence: WayfoundPersistence
     private(set) var state: AppState
 
-    init(state initialState: AppState? = nil, userDefaults: UserDefaults = .standard) {
-        self.userDefaults = userDefaults
+    init(state initialState: AppState? = nil, persistence: WayfoundPersistence = FileWayfoundPersistence()) {
+        self.persistence = persistence
 
         if let initialState {
             state = initialState
-        } else if let data = userDefaults.data(forKey: storageKey),
-           let decoded = try? JSONDecoder.wayfound.decode(AppState.self, from: data) {
-            state = decoded
+        } else if let loaded = persistence.load() {
+            state = loaded
         } else {
             state = .sample
         }
     }
 
     var activeGoals: [Goal] {
-        state.goals.filter { $0.mode != .sleeping }
+        state.goals.filter { $0.mode != .sleeping && $0.archivedAt == nil }
+    }
+
+    var visibleGoals: [Goal] {
+        state.goals.filter { $0.archivedAt == nil }
     }
 
     var freeGoalLimit: Int { 3 }
 
     var canCreateGoal: Bool {
-        state.isPremium || state.goals.count < freeGoalLimit
+        state.isPremium || visibleGoals.count < freeGoalLimit
     }
 
     var momentumScore: Int {
@@ -68,6 +70,31 @@ final class WayfoundStore {
         save()
     }
 
+    func updateGoal(_ goal: Goal, title: String, category: WayfoundCategory, weight: Int, weeklyTarget: Int) {
+        guard let index = state.goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty else { return }
+
+        state.goals[index].title = cleanTitle
+        state.goals[index].category = category
+        state.goals[index].weight = weight.clamped(to: 1...5)
+        state.goals[index].weeklyTarget = weeklyTarget.clamped(to: 1...14)
+        save()
+    }
+
+    func archiveGoal(_ goal: Goal) {
+        guard let index = state.goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        state.goals[index].archivedAt = .now
+        state.goals[index].mode = .sleeping
+        save()
+    }
+
+    func deleteGoal(_ goal: Goal) {
+        state.goals.removeAll { $0.id == goal.id }
+        state.checkIns.removeAll { $0.goalID == goal.id }
+        save()
+    }
+
     func logProgress(for goal: Goal, amount: Int, note: String = "") {
         guard amount > 0 else { return }
         state.checkIns.append(CheckIn(goalID: goal.id, amount: amount, note: note))
@@ -88,6 +115,30 @@ final class WayfoundStore {
     func setPremium(_ isPremium: Bool) {
         state.isPremium = isPremium
         save()
+    }
+
+    func updateReminder(_ preference: ReminderPreference) {
+        state.dailyReminder = ReminderPreference(
+            isEnabled: preference.isEnabled,
+            hour: preference.hour.clamped(to: 0...23),
+            minute: preference.minute.clamped(to: 0...59)
+        )
+        save()
+    }
+
+    func recoverySuggestion(for goal: Goal) -> String {
+        switch goal.category {
+        case .health:
+            "Try the two-minute version: stretch, drink water, or step outside."
+        case .money:
+            "Open the account, note one number, then stop. That counts."
+        case .family:
+            "Send one message or clear one tiny admin item."
+        case .purpose:
+            "Protect ten minutes for the next smallest meaningful step."
+        case .you:
+            "Choose one restorative action that future-you would recognize."
+        }
     }
 
     func weeklyProgress(for goal: Goal) -> Double {
@@ -111,8 +162,7 @@ final class WayfoundStore {
     }
 
     private func save() {
-        guard let data = try? JSONEncoder.wayfound.encode(state) else { return }
-        userDefaults.set(data, forKey: storageKey)
+        persistence.save(state)
     }
 }
 

@@ -68,6 +68,7 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
     var weight: Int
     var weeklyTarget: Int
     var mode: GoalMode
+    var archivedAt: Date?
     var createdAt: Date
 
     init(
@@ -77,6 +78,7 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
         weight: Int,
         weeklyTarget: Int,
         mode: GoalMode = .active,
+        archivedAt: Date? = nil,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -85,6 +87,7 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
         self.weight = weight
         self.weeklyTarget = weeklyTarget
         self.mode = mode
+        self.archivedAt = archivedAt
         self.createdAt = createdAt
     }
 }
@@ -108,12 +111,14 @@ struct CheckIn: Identifiable, Codable, Hashable, Sendable {
 struct AppState: Codable, Sendable {
     var hasCompletedOnboarding: Bool
     var isPremium: Bool
+    var dailyReminder: ReminderPreference
     var goals: [Goal]
     var checkIns: [CheckIn]
 
     static let sample = AppState(
         hasCompletedOnboarding: false,
         isPremium: false,
+        dailyReminder: ReminderPreference(),
         goals: [
             Goal(title: "Ten-minute reset walk", category: .health, weight: 3, weeklyTarget: 4),
             Goal(title: "Family admin moment", category: .family, weight: 2, weeklyTarget: 3),
@@ -121,4 +126,16 @@ struct AppState: Codable, Sendable {
         ],
         checkIns: []
     )
+}
+
+struct ReminderPreference: Codable, Equatable, Sendable {
+    var isEnabled: Bool
+    var hour: Int
+    var minute: Int
+
+    init(isEnabled: Bool = false, hour: Int = 20, minute: Int = 30) {
+        self.isEnabled = isEnabled
+        self.hour = hour
+        self.minute = minute
+    }
 }

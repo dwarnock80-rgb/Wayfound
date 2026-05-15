@@ -17,7 +17,7 @@ struct HomeDashboardView: View {
                         Text("Active Goals")
                             .font(.title3.weight(.semibold))
 
-                        ForEach(store.state.goals) { goal in
+                        ForEach(store.visibleGoals) { goal in
                             GoalCard(goal: goal)
                         }
                     }

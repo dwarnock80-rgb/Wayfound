@@ -13,7 +13,7 @@ struct MomentumView: View {
                         Text("Weekly Review")
                             .font(.title2.weight(.semibold))
 
-                        ForEach(store.state.goals) { goal in
+                        ForEach(store.visibleGoals) { goal in
                             WeeklyGoalReview(goal: goal)
                         }
                     }
@@ -53,6 +53,12 @@ private struct WeeklyGoalReview: View {
             Text(reviewLine(progress: progress))
                 .font(.subheadline)
                 .foregroundStyle(WayfoundTheme.secondaryInk)
+
+            if progress < GoalThreshold.bronze.requiredFraction {
+                Text(store.recoverySuggestion(for: goal))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(WayfoundTheme.rose)
+            }
         }
         .premiumPanel()
     }
