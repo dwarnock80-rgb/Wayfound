@@ -41,11 +41,11 @@ workflows:
       xcode: latest
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: "com.wayfound.app"
+        bundle_identifier: "com.danielwarnock.wayfound"
       vars:
         XCODE_PROJECT: "Wayfound.xcodeproj"
         XCODE_SCHEME: "Wayfound"
-        BUNDLE_ID: "com.wayfound.app"
+        BUNDLE_ID: "com.danielwarnock.wayfound"
     scripts:
       - name: Show Xcode version
         script: xcodebuild -version
