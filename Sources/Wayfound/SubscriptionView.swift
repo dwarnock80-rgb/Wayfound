@@ -1,94 +1,231 @@
 import SwiftUI
 
-struct SubscriptionView: View {
+struct TodosView: View {
     @Environment(WayfoundStore.self) private var store
-    @State private var subscriptionService = SubscriptionService()
+    @State private var newTitle = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("YOUR TASKS")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(WayfoundTheme.secondaryInk)
+                        Text("To-Do List")
+                            .font(.system(size: 26, weight: .bold, design: .serif))
+                    }
+
+                    HStack(spacing: 10) {
+                        TextField("What needs doing?", text: $newTitle)
+                            .textFieldStyle(.roundedBorder)
+                            .submitLabel(.done)
+                            .onSubmit(addTodo)
+
+                        Button(action: addTodo) {
+                            Image(systemName: "plus")
+                                .font(.headline)
+                                .frame(width: 42, height: 42)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(WayfoundTheme.deepSage)
+                        .disabled(newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    VStack(spacing: 10) {
+                        if store.pendingTodos.isEmpty && store.completedTodos.isEmpty {
+                            EmptyState(title: "A blank slate", message: "Add your first task above.")
+                        }
+
+                        ForEach(store.pendingTodos) { todo in
+                            TodoRow(todo: todo)
+                        }
+                    }
+
+                    if !store.completedTodos.isEmpty {
+                        VStack(spacing: 10) {
+                            Text("COMPLETED · \(store.completedTodos.count)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(WayfoundTheme.secondaryInk)
+                                .frame(maxWidth: .infinity)
+
+                            ForEach(store.completedTodos) { todo in
+                                TodoRow(todo: todo)
+                            }
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .background(WayfoundTheme.background)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func addTodo() {
+        store.addTodo(title: newTitle)
+        newTitle = ""
+    }
+}
+
+private struct TodoRow: View {
+    @Environment(WayfoundStore.self) private var store
+    let todo: Todo
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button {
+                store.toggleTodo(todo)
+            } label: {
+                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(todo.isCompleted ? WayfoundTheme.deepSage : WayfoundTheme.secondaryInk.opacity(0.55))
+            }
+            .buttonStyle(.plain)
+
+            Text(todo.title)
+                .font(.subheadline.weight(.medium))
+                .strikethrough(todo.isCompleted)
+                .foregroundStyle(todo.isCompleted ? WayfoundTheme.secondaryInk.opacity(0.7) : WayfoundTheme.ink)
+
+            Spacer()
+
+            Button(role: .destructive) {
+                store.deleteTodo(todo)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(WayfoundTheme.secondaryInk.opacity(0.55))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(todo.isCompleted ? WayfoundTheme.background : WayfoundTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(WayfoundTheme.line))
+    }
+}
+
+struct SettingsView: View {
+    @Environment(WayfoundStore.self) private var store
+    @State private var reminderMessage: String?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Wayfound Premium")
-                            .font(.largeTitle.weight(.semibold))
-                        Text("More room for a full life, still private and local.")
-                            .font(.title3)
-                            .foregroundStyle(WayfoundTheme.secondaryInk)
-                    }
+                    Text("Settings")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        PremiumFeature(symbol: "target", title: "More active goals", body: "Move beyond the free goal limit when life has more threads.")
-                        PremiumFeature(symbol: "chart.line.uptrend.xyaxis", title: "Momentum analytics", body: "See category balance, recovery patterns, and weekly movement.")
-                        PremiumFeature(symbol: "shippingbox.fill", title: "Advanced packs", body: "Guided goal sets for health resets, family admin, money calm, and purpose work.")
-                    }
-                    .premiumPanel()
-
-                    VStack(spacing: 10) {
-                        Button {
-                            Task {
-                                await subscriptionService.purchasePremium(store: store)
-                            }
-                        } label: {
-                            Label(store.state.isPremium ? "Premium active" : purchaseButtonTitle, systemImage: "star.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .disabled(store.state.isPremium || subscriptionService.products.isEmpty || subscriptionService.isProcessing)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .tint(WayfoundTheme.deepSage)
-
-                        Button {
-                            Task {
-                                await subscriptionService.restore(store: store)
-                            }
-                        } label: {
-                            Label("Restore purchases", systemImage: "arrow.clockwise.circle.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .disabled(subscriptionService.isProcessing)
-                        .buttonStyle(.bordered)
-                    }
-
-                    Text(subscriptionService.statusMessage)
-                        .font(.footnote)
-                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                    sleepModeCard
+                    reminderCard
+                    aboutCard
                 }
                 .padding(18)
             }
             .background(WayfoundTheme.background)
-            .navigationTitle("Premium")
-            .task {
-                await subscriptionService.loadProducts()
-                await subscriptionService.refreshEntitlements(store: store)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var sleepModeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Sleep Mode", systemImage: "moon.fill")
+                .font(.headline)
+                .foregroundStyle(WayfoundTheme.deepSage)
+            Text("Going on holiday? Having a rough week? Put goals to sleep. Your momentum will not be affected.")
+                .font(.subheadline)
+                .foregroundStyle(WayfoundTheme.secondaryInk)
+
+            HStack {
+                Button("Sleep All (\(store.activeGoals.count))") {
+                    store.setAllSleeping(true)
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.activeGoals.isEmpty)
+
+                Button("Wake All (\(store.sleepingGoals.count))") {
+                    store.setAllSleeping(false)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(WayfoundTheme.deepSage)
+                .disabled(store.sleepingGoals.isEmpty)
             }
         }
+        .premiumPanel()
     }
 
-    private var purchaseButtonTitle: String {
-        if let product = subscriptionService.products.first {
-            return "Start premium \(product.displayPrice)"
-        }
-        return "Premium unavailable"
-    }
-}
+    private var reminderCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Daily gentle reminder", isOn: enabledBinding)
+                .font(.headline)
 
-private struct PremiumFeature: View {
-    let symbol: String
-    let title: String
-    let body: String
+            if store.state.dailyReminder.isEnabled {
+                DatePicker("Time", selection: reminderDateBinding, displayedComponents: .hourAndMinute)
+            }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol)
-                .font(.title3)
-                .foregroundStyle(WayfoundTheme.deepSage)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(body)
-                    .font(.subheadline)
+            if let reminderMessage {
+                Text(reminderMessage)
+                    .font(.caption)
                     .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+        }
+        .premiumPanel()
+    }
+
+    private var aboutCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("About Wayfound", systemImage: "heart.fill")
+                .font(.headline)
+                .foregroundStyle(WayfoundTheme.rose)
+            Text("Making progress in the middle of chaos. Small progress still counts. Bad days are normal. Wayfound supports sustainable momentum rather than perfection.")
+                .font(.subheadline)
+                .foregroundStyle(WayfoundTheme.secondaryInk)
+            Label("Version 1.0", systemImage: "sparkles")
+                .font(.caption)
+                .foregroundStyle(WayfoundTheme.secondaryInk)
+        }
+        .premiumPanel()
+    }
+
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { store.state.dailyReminder.isEnabled },
+            set: { isEnabled in
+                var preference = store.state.dailyReminder
+                preference.isEnabled = isEnabled
+                apply(preference)
+            }
+        )
+    }
+
+    private var reminderDateBinding: Binding<Date> {
+        Binding(
+            get: {
+                Calendar.current.date(bySettingHour: store.state.dailyReminder.hour, minute: store.state.dailyReminder.minute, second: 0, of: .now) ?? .now
+            },
+            set: { date in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+                var preference = store.state.dailyReminder
+                preference.hour = components.hour ?? preference.hour
+                preference.minute = components.minute ?? preference.minute
+                apply(preference)
+            }
+        )
+    }
+
+    private func apply(_ preference: ReminderPreference) {
+        Task {
+            let scheduled = await NotificationService.applyDailyReminder(preference)
+            if scheduled {
+                store.updateReminder(preference)
+                reminderMessage = preference.isEnabled ? "Reminder scheduled locally on this device." : "Reminder turned off."
+            } else {
+                var disabled = preference
+                disabled.isEnabled = false
+                store.updateReminder(disabled)
+                reminderMessage = "Notifications were not allowed. You can enable them in Settings."
             }
         }
     }

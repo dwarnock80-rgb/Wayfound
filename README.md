@@ -5,12 +5,12 @@ Wayfound is a calm, local-only goal progress app for busy parents, carers, and p
 ## Built From The Product Spec
 
 - Fixed life categories: Health, Money, Family, Purpose, You
-- Weighted goals with Bronze, Silver, and Gold thresholds
+- Weighted goals with Partially met, Achieved, and Exceeded check-ins
 - Momentum Score instead of brittle streaks
 - Recovery Mode for low-consistency periods
 - Sleep Mode for holidays, illness, or life events
 - Local-only privacy with no accounts or backend
-- Free tier limit and premium subscription surface
+- To-do list, Sleep Mode, local reminders, and settings
 
 ## Development
 

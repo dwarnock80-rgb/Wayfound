@@ -10,24 +10,33 @@ struct WayfoundTests {
         #expect(store.canCreateGoal == false)
     }
 
-    @Test func loggingProgressImprovesMomentum() {
+    @Test func achievedCheckInImprovesMomentum() {
         let store = WayfoundStore(state: .sample, persistence: InMemoryWayfoundPersistence())
         let startingScore = store.momentumScore
         let goal = store.state.goals[0]
 
-        store.logProgress(for: goal, amount: goal.weeklyTarget)
+        store.saveCheckIns([goal.id: CheckInDraft(tier: .silver, mood: .good)])
 
         #expect(store.momentumScore > startingScore)
-        #expect(store.threshold(for: goal) == .gold)
+        #expect(store.checkIn(for: goal)?.tier == .silver)
     }
 
-    @Test func archivingGoalRemovesItFromMomentum() {
+    @Test func sleepModeRemovesGoalFromMomentum() {
         let store = WayfoundStore(state: .sample, persistence: InMemoryWayfoundPersistence())
         let goal = store.state.goals[0]
 
-        store.archiveGoal(goal)
+        store.setSleeping(goal, isSleeping: true)
 
-        #expect(store.visibleGoals.contains(goal) == false)
-        #expect(store.activeGoals.contains(goal) == false)
+        #expect(store.sleepingGoals.contains { $0.id == goal.id })
+        #expect(!store.activeGoals.contains { $0.id == goal.id })
+    }
+
+    @Test func todosCanBeCompleted() {
+        let store = WayfoundStore(state: .sample, persistence: InMemoryWayfoundPersistence())
+        let todo = store.state.todos[0]
+
+        store.toggleTodo(todo)
+
+        #expect(store.completedTodos.contains { $0.id == todo.id })
     }
 }

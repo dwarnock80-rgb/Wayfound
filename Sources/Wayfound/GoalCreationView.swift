@@ -2,175 +2,225 @@ import SwiftUI
 
 struct GoalCreationView: View {
     @Environment(WayfoundStore.self) private var store
-    @State private var title = ""
-    @State private var category: WayfoundCategory = .health
-    @State private var weight = 2
-    @State private var weeklyTarget = 3
+    @State private var showingEditor = false
     @State private var editingGoal: Goal?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Create a gentle target")
-                            .font(.title2.weight(.semibold))
-                        Text("Weight reflects emotional or practical importance. Targets stay weekly so bad days do not break the system.")
-                            .font(.subheadline)
-                            .foregroundStyle(WayfoundTheme.secondaryInk)
-                    }
+                VStack(alignment: .leading, spacing: 20) {
+                    header
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        TextField("Goal title", text: $title)
-                            .textFieldStyle(.roundedBorder)
-
-                        Picker("Category", selection: $category) {
-                            ForEach(WayfoundCategory.allCases) { category in
-                                Label(category.rawValue, systemImage: category.symbol)
-                                    .tag(category)
-                            }
-                        }
-
-                        Stepper("Weight: \(weight)", value: $weight, in: 1...5)
-                        Stepper("Weekly target: \(weeklyTarget)", value: $weeklyTarget, in: 1...14)
-
-                        Button {
-                            store.addGoal(title: title, category: category, weight: weight, weeklyTarget: weeklyTarget)
-                            title = ""
-                            category = .health
-                            weight = 2
-                            weeklyTarget = 3
-                        } label: {
-                            Label(store.canCreateGoal ? "Add goal" : "Premium unlock required", systemImage: "plus.circle.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .disabled(!store.canCreateGoal)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .tint(WayfoundTheme.deepSage)
-                    }
-                    .premiumPanel()
-
-                    if !store.state.isPremium {
-                        Text("Free plan includes up to \(store.freeGoalLimit) active goals.")
-                            .font(.footnote)
-                            .foregroundStyle(WayfoundTheme.secondaryInk)
-                    }
-
-                    ForEach(store.visibleGoals) { goal in
-                        GoalManagementRow(goal: goal)
-                            .onTapGesture {
-                                editingGoal = goal
-                            }
+                    if store.visibleGoals.isEmpty {
+                        EmptyState(title: "No goals yet", message: "Start with something small.")
+                    } else {
+                        goalSection("Active", goals: store.activeGoals)
+                        goalSection("Sleeping", goals: store.sleepingGoals)
+                        goalSection("Archived", goals: store.archivedGoals)
                     }
                 }
                 .padding(18)
             }
             .background(WayfoundTheme.background)
             .navigationTitle("Goals")
-            .sheet(item: $editingGoal) { goal in
-                GoalEditorView(goal: goal)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        editingGoal = nil
+                        showingEditor = true
+                    } label: {
+                        Label("New", systemImage: "plus")
+                    }
+                    .disabled(!store.canCreateGoal)
+                }
+            }
+            .sheet(isPresented: $showingEditor) {
+                GoalEditorView(goal: editingGoal)
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Goals")
+                .font(.system(size: 26, weight: .bold, design: .serif))
+            if !store.state.isPremium {
+                Text("Free plan includes up to \(store.freeGoalLimit) active goals.")
+                    .font(.footnote)
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+        }
+    }
+
+    private func goalSection(_ title: String, goals: [Goal]) -> some View {
+        Group {
+            if !goals.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(title.uppercased())
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+
+                    ForEach(goals) { goal in
+                        GoalRow(goal: goal) {
+                            editingGoal = goal
+                            showingEditor = true
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-private struct GoalManagementRow: View {
-    @Environment(WayfoundStore.self) private var store
+private struct GoalRow: View {
     let goal: Goal
+    let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(goal.title, systemImage: goal.category.symbol)
-                    .font(.headline)
-                    .foregroundStyle(goal.category.tint)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(goal.emoji.isEmpty ? goal.category.emoji : goal.emoji)
+                    .font(.title3)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(goal.title)
+                        .font(.subheadline.weight(.semibold))
+                        .strikethrough(goal.isSleeping)
+                    Text("\(goal.category.label) · \(goal.frequency.label)")
+                        .font(.caption2)
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                }
                 Spacer()
-                Image(systemName: "pencil.circle.fill")
-                    .foregroundStyle(WayfoundTheme.secondaryInk)
+                Text("Weight: \(goal.weight)")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(WayfoundTheme.background, in: Capsule())
+                if goal.isSleeping {
+                    Image(systemName: "moon.fill")
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                }
             }
-
-            Picker("Mode", selection: modeBinding) {
-                Text("Active").tag(GoalMode.active)
-                Text("Recovery").tag(GoalMode.recovery)
-                Text("Sleep").tag(GoalMode.sleeping)
-            }
-            .pickerStyle(.segmented)
+            .padding(14)
+            .background(goal.category.tint.opacity(0.11))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(goal.category.tint.opacity(0.25)))
         }
-        .premiumPanel()
-    }
-
-    private var modeBinding: Binding<GoalMode> {
-        Binding(
-            get: { goal.mode },
-            set: { store.updateMode(for: goal, mode: $0) }
-        )
+        .buttonStyle(.plain)
     }
 }
 
 private struct GoalEditorView: View {
+    private let emojis = ["💪", "🏃", "🧘", "📚", "💰", "🍎", "🎯", "🧠", "❤️", "🌱", "✍️", "🎨", "🏡", "🧑‍🍳", "💊", "🚶", "😴", "🧹"]
+
     @Environment(\.dismiss) private var dismiss
     @Environment(WayfoundStore.self) private var store
-    let goal: Goal
+    let goal: Goal?
     @State private var title: String
     @State private var category: WayfoundCategory
     @State private var weight: Int
-    @State private var weeklyTarget: Int
+    @State private var frequency: GoalFrequency
+    @State private var emoji: String
+    @State private var isSleeping: Bool
+    @State private var isActive: Bool
     @State private var showDeleteConfirmation = false
 
-    init(goal: Goal) {
+    init(goal: Goal?) {
         self.goal = goal
-        _title = State(initialValue: goal.title)
-        _category = State(initialValue: goal.category)
-        _weight = State(initialValue: goal.weight)
-        _weeklyTarget = State(initialValue: goal.weeklyTarget)
+        _title = State(initialValue: goal?.title ?? "")
+        _category = State(initialValue: goal?.category ?? .health)
+        _weight = State(initialValue: goal?.weight ?? 1)
+        _frequency = State(initialValue: goal?.frequency ?? .daily)
+        _emoji = State(initialValue: goal?.emoji ?? "💪")
+        _isSleeping = State(initialValue: goal?.isSleeping ?? false)
+        _isActive = State(initialValue: goal?.isActive ?? true)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Goal title", text: $title)
-
-                Picker("Category", selection: $category) {
-                    ForEach(WayfoundCategory.allCases) { category in
-                        Label(category.rawValue, systemImage: category.symbol)
-                            .tag(category)
+                Section("Icon") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
+                        ForEach(emojis, id: \.self) { option in
+                            Button {
+                                emoji = option
+                            } label: {
+                                Text(option)
+                                    .font(.title2)
+                                    .frame(width: 42, height: 42)
+                                    .background(emoji == option ? WayfoundTheme.deepSage.opacity(0.16) : WayfoundTheme.background)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(emoji == option ? WayfoundTheme.deepSage : WayfoundTheme.line))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
 
-                Stepper("Weight: \(weight)", value: $weight, in: 1...5)
-                Stepper("Weekly target: \(weeklyTarget)", value: $weeklyTarget, in: 1...14)
-
                 Section {
-                    Button("Archive goal", role: .destructive) {
-                        store.archiveGoal(goal)
-                        dismiss()
+                    TextField("Goal name", text: $title)
+                    Picker("Category", selection: $category) {
+                        ForEach(WayfoundCategory.allCases) { category in
+                            Text("\(category.emoji) \(category.label)").tag(category)
+                        }
+                    }
+                    Picker("Frequency", selection: $frequency) {
+                        ForEach(GoalFrequency.allCases) { frequency in
+                            Text(frequency.label).tag(frequency)
+                        }
+                    }
+                    Stepper("Importance Weight: \(weight) / 5", value: $weight, in: 1...5)
+                }
+
+                Section("Momentum weighting") {
+                    Text("Each check-in contributes to your momentum score. A weight 5 goal has more impact than a weight 1 goal, so use higher weights for the goals that define your week.")
+                        .font(.footnote)
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                }
+
+                if goal != nil {
+                    Section {
+                        Toggle("Sleep Mode", isOn: $isSleeping)
+                        Toggle("Active", isOn: $isActive)
                     }
 
-                    Button("Delete goal and history", role: .destructive) {
-                        showDeleteConfirmation = true
+                    Section {
+                        Button("Delete Goal", role: .destructive) {
+                            showDeleteConfirmation = true
+                        }
                     }
                 }
             }
-            .navigationTitle("Edit Goal")
+            .navigationTitle(goal == nil ? "New Goal" : "Edit Goal")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        store.updateGoal(goal, title: title, category: category, weight: weight, weeklyTarget: weeklyTarget)
-                        dismiss()
+                        save()
                     }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .confirmationDialog("Delete this goal and its check-ins?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete permanently", role: .destructive) {
-                    store.deleteGoal(goal)
+                    if let goal {
+                        store.deleteGoal(goal)
+                    }
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
             }
         }
+    }
+
+    private func save() {
+        if let goal {
+            store.updateGoal(goal, title: title, category: category, weight: weight, frequency: frequency, emoji: emoji, isActive: isActive, isSleeping: isSleeping)
+        } else {
+            store.addGoal(title: title, category: category, weight: weight, frequency: frequency, emoji: emoji)
+        }
+        dismiss()
     }
 }

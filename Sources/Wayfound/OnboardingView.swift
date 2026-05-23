@@ -16,7 +16,7 @@ struct OnboardingView: View {
                 .padding(.top, 28)
 
                 VStack(alignment: .leading, spacing: 14) {
-                    PhilosophyRow(symbol: "smallcircle.filled.circle", title: "Small progress counts", body: "Bronze, Silver, and Gold thresholds reward movement instead of perfection.")
+                    PhilosophyRow(symbol: "smallcircle.filled.circle", title: "Small progress counts", body: "Partially met, achieved, and exceeded check-ins reward movement instead of perfection.")
                     PhilosophyRow(symbol: "moon.zzz.fill", title: "Life can pause", body: "Sleep Mode protects holidays, illness, and heavy seasons from becoming failure.")
                     PhilosophyRow(symbol: "heart.text.square.fill", title: "Recovery is built in", body: "When consistency dips, Wayfound softens the next step instead of adding guilt.")
                 }

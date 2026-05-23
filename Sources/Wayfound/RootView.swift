@@ -30,11 +30,14 @@ struct MainTabView: View {
             GoalCreationView()
                 .tabItem { Label("Goals", systemImage: "target") }
 
-            MomentumView()
-                .tabItem { Label("Momentum", systemImage: "waveform.path.ecg") }
+            TodosView()
+                .tabItem { Label("To-Dos", systemImage: "checklist") }
 
-            SubscriptionView()
-                .tabItem { Label("Premium", systemImage: "star.fill") }
+            MomentumView()
+                .tabItem { Label("Momentum", systemImage: "chart.xyaxis.line") }
+
+            SettingsView()
+                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
     }
 }
