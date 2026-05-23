@@ -13,12 +13,25 @@ workflows:
         script: xcodebuild -version
       - name: Build simulator app
         script: |
+          mkdir -p /tmp/xcodebuild_logs
+          set +e
           xcodebuild build \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            > /tmp/xcodebuild_logs/simulator-build.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "---- Swift/Xcode errors ----"
+            grep -n -B 4 -A 10 "error:" /tmp/xcodebuild_logs/simulator-build.log || true
+            echo "---- Last 120 build log lines ----"
+            tail -120 /tmp/xcodebuild_logs/simulator-build.log
+          fi
+          exit "$status"
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
 
   ios-release:
     name: Wayfound iOS Release

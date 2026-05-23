@@ -133,7 +133,8 @@ private struct GoalMomentumRow: View {
             }
 
             HStack(spacing: 3) {
-                ForEach(days, id: \.date) { item in
+                ForEach(days.indices, id: \.self) { index in
+                    let item = days[index]
                     RoundedRectangle(cornerRadius: 4)
                         .fill((item.checkIn?.tier ?? .none).color)
                         .frame(height: 8)
