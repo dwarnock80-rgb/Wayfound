@@ -125,6 +125,13 @@ final class WayfoundStore {
         save()
     }
 
+    func restoreGoal(_ goal: Goal) {
+        guard canCreateGoal, let index = state.goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        state.goals[index].isActive = true
+        state.goals[index].isSleeping = false
+        save()
+    }
+
     func deleteGoal(_ goal: Goal) {
         state.goals.removeAll { $0.id == goal.id }
         state.checkIns.removeAll { $0.goalID == goal.id }

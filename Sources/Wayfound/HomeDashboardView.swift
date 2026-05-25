@@ -51,6 +51,13 @@ struct HomeDashboardView: View {
                 Text("Today's focus")
                     .font(.headline)
                 Spacer()
+                NavigationLink {
+                    GoalCreationView()
+                } label: {
+                    Label(store.activeGoals.isEmpty ? "Add" : "Manage", systemImage: store.activeGoals.isEmpty ? "plus.circle.fill" : "slider.horizontal.3")
+                        .labelStyle(.titleAndIcon)
+                }
+                .font(.caption.weight(.semibold))
                 if !store.activeGoals.isEmpty {
                     NavigationLink("Check in all") {
                         DailyCheckInView()

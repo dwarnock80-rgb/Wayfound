@@ -4,6 +4,8 @@ struct GoalCreationView: View {
     @Environment(WayfoundStore.self) private var store
     @State private var showingEditor = false
     @State private var editingGoal: Goal?
+    @State private var deleteCandidate: Goal?
+    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -26,8 +28,7 @@ struct GoalCreationView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        editingGoal = nil
-                        showingEditor = true
+                        addGoal()
                     } label: {
                         Label("New", systemImage: "plus")
                     }
@@ -37,19 +38,49 @@ struct GoalCreationView: View {
             .sheet(isPresented: $showingEditor) {
                 GoalEditorView(goal: editingGoal)
             }
+            .confirmationDialog("Delete this goal and its check-ins?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                if let deleteCandidate {
+                    Button("Delete permanently", role: .destructive) {
+                        store.deleteGoal(deleteCandidate)
+                        self.deleteCandidate = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    deleteCandidate = nil
+                }
+            }
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Goals")
-                .font(.system(size: 26, weight: .bold, design: .serif))
-            if !store.state.isPremium {
-                Text("Free plan includes up to \(store.freeGoalLimit) active goals.")
-                    .font(.footnote)
-                    .foregroundStyle(WayfoundTheme.secondaryInk)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Goals")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                    if !store.state.isPremium {
+                        Text(store.canCreateGoal ? "Free plan includes up to \(store.freeGoalLimit) active goals." : "Free plan limit reached.")
+                            .font(.footnote)
+                            .foregroundStyle(WayfoundTheme.secondaryInk)
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    addGoal()
+                } label: {
+                    Label("Add Goal", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!store.canCreateGoal)
             }
         }
+    }
+
+    private func addGoal() {
+        editingGoal = nil
+        showingEditor = true
     }
 
     private func goalSection(_ title: String, goals: [Goal]) -> some View {
@@ -64,6 +95,15 @@ struct GoalCreationView: View {
                         GoalRow(goal: goal) {
                             editingGoal = goal
                             showingEditor = true
+                        } onSleepToggle: {
+                            store.setSleeping(goal, isSleeping: !goal.isSleeping)
+                        } onArchive: {
+                            store.archiveGoal(goal)
+                        } onRestore: {
+                            store.restoreGoal(goal)
+                        } onDelete: {
+                            deleteCandidate = goal
+                            showingDeleteConfirmation = true
                         }
                     }
                 }
@@ -74,39 +114,91 @@ struct GoalCreationView: View {
 
 private struct GoalRow: View {
     let goal: Goal
-    let action: () -> Void
+    let onEdit: () -> Void
+    let onSleepToggle: () -> Void
+    let onArchive: () -> Void
+    let onRestore: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Text(goal.emoji.isEmpty ? goal.category.emoji : goal.emoji)
-                    .font(.title3)
-                    .frame(width: 32)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(goal.title)
-                        .font(.subheadline.weight(.semibold))
-                        .strikethrough(goal.isSleeping)
-                    Text("\(goal.category.label) · \(goal.frequency.label)")
-                        .font(.caption2)
-                        .foregroundStyle(WayfoundTheme.secondaryInk)
-                }
-                Spacer()
-                Text("Weight: \(goal.weight)")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(WayfoundTheme.background, in: Capsule())
-                if goal.isSleeping {
-                    Image(systemName: "moon.fill")
-                        .foregroundStyle(WayfoundTheme.secondaryInk)
-                }
+        HStack(spacing: 12) {
+            Button(action: onEdit) {
+                rowContent
             }
-            .padding(14)
-            .background(goal.category.tint.opacity(0.11))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(goal.category.tint.opacity(0.25)))
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Menu {
+                Button {
+                    onEdit()
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+
+                if goal.isActive {
+                    Button {
+                        onSleepToggle()
+                    } label: {
+                        Label(goal.isSleeping ? "Wake" : "Sleep", systemImage: goal.isSleeping ? "sun.max" : "moon")
+                    }
+
+                    Button {
+                        onArchive()
+                    } label: {
+                        Label("Archive", systemImage: "archivebox")
+                    }
+                } else {
+                    Button {
+                        onRestore()
+                    } label: {
+                        Label("Restore", systemImage: "arrow.uturn.backward")
+                    }
+                }
+
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+            }
+            .accessibilityLabel("Goal actions")
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(.trailing, 10)
+        .background(goal.category.tint.opacity(0.11))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(goal.category.tint.opacity(0.25)))
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 12) {
+            Text(goal.emoji.isEmpty ? goal.category.emoji : goal.emoji)
+                .font(.title3)
+                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(goal.title)
+                    .font(.subheadline.weight(.semibold))
+                    .strikethrough(goal.isSleeping)
+                Text("\(goal.category.label) · \(goal.frequency.label)")
+                    .font(.caption2)
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+            Spacer()
+            Text("Weight: \(goal.weight)")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(WayfoundTheme.background, in: Capsule())
+            if goal.isSleeping {
+                Image(systemName: "moon.fill")
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+        }
+        .padding(14)
     }
 }
 

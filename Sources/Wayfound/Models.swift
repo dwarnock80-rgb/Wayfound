@@ -230,11 +230,7 @@ struct AppState: Codable, Sendable {
         hasCompletedOnboarding: false,
         isPremium: false,
         dailyReminder: ReminderPreference(),
-        goals: [
-            Goal(title: "Ten-minute reset walk", category: .health, weight: 3, emoji: "🚶"),
-            Goal(title: "Family admin moment", category: .family, weight: 2, emoji: "🏡"),
-            Goal(title: "Protect one quiet hour", category: .you, weight: 2, emoji: "😴")
-        ],
+        goals: [],
         checkIns: [],
         todos: [
             Todo(title: "Add one task you have been carrying")
