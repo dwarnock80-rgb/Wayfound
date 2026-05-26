@@ -29,12 +29,14 @@ struct HomeDashboardView: View {
                     .foregroundStyle(WayfoundTheme.secondaryInk)
                 Text("Wayfound")
                     .font(.system(size: 34, weight: .bold, design: .serif))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+                    .allowsTightening(true)
                 Text("Small steps. Real progress.")
                     .font(.subheadline)
                     .foregroundStyle(WayfoundTheme.secondaryInk)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             NavigationLink {
                 MomentumView()
