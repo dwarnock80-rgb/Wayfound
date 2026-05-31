@@ -108,6 +108,7 @@ private struct TodoRow: View {
 
 struct SettingsView: View {
     @Environment(WayfoundStore.self) private var store
+    @Environment(SubscriptionService.self) private var subscriptionService
     @State private var reminderMessage: String?
 
     var body: some View {
@@ -119,6 +120,7 @@ struct SettingsView: View {
 
                     sleepModeCard
                     reminderCard
+                    premiumCard
                     aboutCard
                 }
                 .padding(18)
@@ -169,6 +171,36 @@ struct SettingsView: View {
                 Text(reminderMessage)
                     .font(.caption)
                     .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+        }
+        .premiumPanel()
+    }
+
+    private var premiumCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Premium", systemImage: "star.circle.fill")
+                .font(.headline)
+                .foregroundStyle(WayfoundTheme.deepSage)
+
+            Text(store.state.isPremium ? "Premium is active on this device." : subscriptionService.statusMessage)
+                .font(.subheadline)
+                .foregroundStyle(WayfoundTheme.secondaryInk)
+
+            if !store.state.isPremium {
+                HStack {
+                    Button("Buy Premium") {
+                        Task { await subscriptionService.purchasePremium(store: store) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(WayfoundTheme.deepSage)
+                    .disabled(subscriptionService.products.isEmpty || subscriptionService.isProcessing)
+
+                    Button("Restore") {
+                        Task { await subscriptionService.restore(store: store) }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(subscriptionService.isProcessing)
+                }
             }
         }
         .premiumPanel()
