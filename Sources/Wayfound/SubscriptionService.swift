@@ -22,15 +22,18 @@ final class SubscriptionService {
     }
 
     func refreshEntitlements(store: WayfoundStore) async {
-        var hasPremium = false
+        var hasPremiumEntitlement = false
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result,
                   productIDs.contains(transaction.productID) else {
                 continue
             }
-            hasPremium = true
+            hasPremiumEntitlement = true
         }
-        store.setPremium(hasPremium)
+
+        if hasPremiumEntitlement {
+            store.setPremium(true)
+        }
     }
 
     func purchasePremium(store: WayfoundStore) async {

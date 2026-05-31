@@ -119,7 +119,6 @@ struct SettingsView: View {
 
                     sleepModeCard
                     reminderCard
-                    ownerPremiumCard
                     aboutCard
                 }
                 .padding(18)
@@ -170,31 +169,6 @@ struct SettingsView: View {
                 Text(reminderMessage)
                     .font(.caption)
                     .foregroundStyle(WayfoundTheme.secondaryInk)
-            }
-        }
-        .premiumPanel()
-    }
-
-    private var ownerPremiumCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Premium Access", systemImage: "star.circle.fill")
-                .font(.headline)
-                .foregroundStyle(WayfoundTheme.deepSage)
-
-            if store.state.isPremium {
-                Label("Premium is active on this device", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(WayfoundTheme.deepSage)
-            } else {
-                Text("Use owner access to enable premium features on this device without a purchase.")
-                    .font(.subheadline)
-                    .foregroundStyle(WayfoundTheme.secondaryInk)
-
-                Button("Unlock Premium") {
-                    store.setPremium(true)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(WayfoundTheme.deepSage)
             }
         }
         .premiumPanel()
