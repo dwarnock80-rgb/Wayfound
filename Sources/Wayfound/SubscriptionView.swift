@@ -1,4 +1,128 @@
+import StoreKit
 import SwiftUI
+
+struct PremiumUnlockSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(WayfoundStore.self) private var store
+    @Environment(SubscriptionService.self) private var subscriptionService
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Image(systemName: store.state.isPremium ? "checkmark.seal.fill" : "star.circle.fill")
+                            .font(.system(size: 44, weight: .semibold))
+                            .foregroundStyle(WayfoundTheme.deepSage)
+                            .accessibilityHidden(true)
+
+                        Text(store.state.isPremium ? "Premium is unlocked" : "Unlock Premium")
+                            .font(.system(size: 28, weight: .bold, design: .serif))
+
+                        Text(store.state.isPremium ? "You already have access to Wayfound Premium on this device." : "Premium is for seasons when three goals is not enough. Unlock unlimited active goals and keep your routines flexible as life changes.")
+                            .font(.subheadline)
+                            .foregroundStyle(WayfoundTheme.secondaryInk)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        PremiumFeatureRow(symbol: "target", title: "Unlimited active goals", message: "Track everything you are actively rebuilding without archiving a goal to make room.")
+                        PremiumFeatureRow(symbol: "plus.circle.fill", title: "Add goals as life changes", message: "Make room for health, family, money, purpose, and personal goals at the same time.")
+                        PremiumFeatureRow(symbol: "arrow.uturn.backward.circle.fill", title: "Restore anytime", message: "Already unlocked Premium? Restore your purchase with your Apple ID.")
+                    }
+
+                    Text(subscriptionStatusText)
+                        .font(.footnote)
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !store.state.isPremium {
+                        Button {
+                            Task { await subscriptionService.purchasePremium(store: store) }
+                        } label: {
+                            Text(unlockButtonTitle)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .tint(WayfoundTheme.deepSage)
+                        .disabled(subscriptionService.products.isEmpty || subscriptionService.isProcessing)
+
+                        Button {
+                            Task { await subscriptionService.restore(store: store) }
+                        } label: {
+                            Text("Restore Purchase")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(subscriptionService.isProcessing)
+                    } else {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Done")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .tint(WayfoundTheme.deepSage)
+                    }
+                }
+                .padding(20)
+            }
+            .background(WayfoundTheme.background)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var unlockButtonTitle: String {
+        if subscriptionService.isProcessing {
+            "Processing..."
+        } else if let product = subscriptionService.products.first {
+            "Unlock Premium \(product.displayPrice)"
+        } else {
+            "Unlock Premium"
+        }
+    }
+
+    private var subscriptionStatusText: String {
+        store.state.isPremium ? "Premium is active." : subscriptionService.statusMessage
+    }
+}
+
+private struct PremiumFeatureRow: View {
+    let symbol: String
+    let title: String
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(WayfoundTheme.deepSage)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+        }
+        .padding(14)
+        .background(WayfoundTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(WayfoundTheme.line))
+    }
+}
 
 struct TodosView: View {
     @Environment(WayfoundStore.self) private var store
@@ -108,19 +232,19 @@ private struct TodoRow: View {
 
 struct SettingsView: View {
     @Environment(WayfoundStore.self) private var store
-    @Environment(SubscriptionService.self) private var subscriptionService
     @State private var reminderMessage: String?
+    @State private var showingPremiumUnlock = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Settings")
+                    Text("More")
                         .font(.system(size: 26, weight: .bold, design: .serif))
 
+                    unlockPremiumButton
                     sleepModeCard
                     reminderCard
-                    premiumCard
                     aboutCard
                 }
                 .padding(18)
@@ -128,7 +252,38 @@ struct SettingsView: View {
             .background(WayfoundTheme.background)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingPremiumUnlock) {
+                PremiumUnlockSheet()
+            }
         }
+    }
+
+    private var unlockPremiumButton: some View {
+        Button {
+            showingPremiumUnlock = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: store.state.isPremium ? "checkmark.seal.fill" : "star.circle.fill")
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.state.isPremium ? "Premium unlocked" : "Unlock Premium")
+                        .font(.headline)
+                    Text(store.state.isPremium ? "Premium is active on this device." : "Unlimited active goals and the full Wayfound toolkit.")
+                        .font(.subheadline)
+                        .foregroundStyle(WayfoundTheme.secondaryInk)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(WayfoundTheme.secondaryInk)
+            }
+            .foregroundStyle(WayfoundTheme.ink)
+            .padding(16)
+            .background(WayfoundTheme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(WayfoundTheme.line))
+        }
+        .buttonStyle(.plain)
     }
 
     private var sleepModeCard: some View {
@@ -171,36 +326,6 @@ struct SettingsView: View {
                 Text(reminderMessage)
                     .font(.caption)
                     .foregroundStyle(WayfoundTheme.secondaryInk)
-            }
-        }
-        .premiumPanel()
-    }
-
-    private var premiumCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Premium", systemImage: "star.circle.fill")
-                .font(.headline)
-                .foregroundStyle(WayfoundTheme.deepSage)
-
-            Text(store.state.isPremium ? "Premium is active on this device." : subscriptionService.statusMessage)
-                .font(.subheadline)
-                .foregroundStyle(WayfoundTheme.secondaryInk)
-
-            if !store.state.isPremium {
-                HStack {
-                    Button("Buy Premium") {
-                        Task { await subscriptionService.purchasePremium(store: store) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(WayfoundTheme.deepSage)
-                    .disabled(subscriptionService.products.isEmpty || subscriptionService.isProcessing)
-
-                    Button("Restore") {
-                        Task { await subscriptionService.restore(store: store) }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(subscriptionService.isProcessing)
-                }
             }
         }
         .premiumPanel()

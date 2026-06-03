@@ -6,6 +6,7 @@ struct GoalCreationView: View {
     @State private var editingGoal: Goal?
     @State private var deleteCandidate: Goal?
     @State private var showingDeleteConfirmation = false
+    @State private var showingPremiumUnlock = false
 
     var body: some View {
         NavigationStack {
@@ -32,11 +33,13 @@ struct GoalCreationView: View {
                     } label: {
                         Label("New", systemImage: "plus")
                     }
-                    .disabled(!store.canCreateGoal)
                 }
             }
             .sheet(isPresented: $showingEditor) {
                 GoalEditorView(goal: editingGoal)
+            }
+            .sheet(isPresented: $showingPremiumUnlock) {
+                PremiumUnlockSheet()
             }
             .confirmationDialog("Delete this goal and its check-ins?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 if let deleteCandidate {
@@ -73,14 +76,17 @@ struct GoalCreationView: View {
                     Label("Add Goal", systemImage: "plus.circle.fill")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!store.canCreateGoal)
             }
         }
     }
 
     private func addGoal() {
-        editingGoal = nil
-        showingEditor = true
+        if store.canCreateGoal {
+            editingGoal = nil
+            showingEditor = true
+        } else {
+            showingPremiumUnlock = true
+        }
     }
 
     private func goalSection(_ title: String, goals: [Goal]) -> some View {
@@ -100,7 +106,11 @@ struct GoalCreationView: View {
                         } onArchive: {
                             store.archiveGoal(goal)
                         } onRestore: {
-                            store.restoreGoal(goal)
+                            if store.canCreateGoal {
+                                store.restoreGoal(goal)
+                            } else {
+                                showingPremiumUnlock = true
+                            }
                         } onDelete: {
                             deleteCandidate = goal
                             showingDeleteConfirmation = true

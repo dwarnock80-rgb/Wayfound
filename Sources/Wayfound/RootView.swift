@@ -37,7 +37,7 @@ struct MainTabView: View {
                 .tabItem { Label("Momentum", systemImage: "chart.xyaxis.line") }
 
             SettingsView()
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                .tabItem { Label("More", systemImage: "ellipsis.circle.fill") }
         }
     }
 }
