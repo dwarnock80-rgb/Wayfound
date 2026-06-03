@@ -5,7 +5,7 @@ import StoreKit
 @Observable
 @MainActor
 final class SubscriptionService {
-    private let productIDs = ["WFSub001"]
+    private let productIDs = ["WFSub002"]
     private(set) var products: [Product] = []
     private(set) var statusMessage = "Loading purchases..."
     private(set) var isProcessing = false
